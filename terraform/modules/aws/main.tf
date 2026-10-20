@@ -102,10 +102,10 @@ resource "aws_default_security_group" "default" {
   })
 }
 
-# VPC Flow Logs (Checkov CKV2_AWS_11)
+# VPC Flow Logs (Checkov CKV2_AWS_11, CKV_AWS_338)
 resource "aws_cloudwatch_log_group" "vpc_flow_log" {
   name              = "/aws/vpc/${var.cluster_name}-flow-logs"
-  retention_in_days = 7
+  retention_in_days = 365
   kms_key_id        = aws_kms_key.eks.arn
 }
 
@@ -122,22 +122,34 @@ resource "aws_iam_role" "vpc_flow_log" {
   })
 }
 
+# checkov:skip=CKV_AWS_290: Scoped write access to designated CloudWatch log group
+# checkov:skip=CKV_AWS_355: Resource is strictly bound to CloudWatch log group ARN
 resource "aws_iam_role_policy" "vpc_flow_log" {
   name = "${var.cluster_name}-vpc-flow-log-policy"
   role = aws_iam_role.vpc_flow_log.id
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Action = [
-        "logs:CreateLogStream",
-        "logs:PutLogEvents",
-        "logs:DescribeLogGroups",
-        "logs:DescribeLogStreams"
-      ]
-      Effect   = "Allow"
-      Resource = "*"
-    }]
+    Statement = [
+      {
+        Sid    = "VPCFlowLogsDelivery"
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "${aws_cloudwatch_log_group.vpc_flow_log.arn}:*"
+      },
+      {
+        Sid    = "VPCFlowLogsDescribe"
+        Effect = "Allow"
+        Action = [
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams"
+        ]
+        Resource = aws_cloudwatch_log_group.vpc_flow_log.arn
+      }
+    ]
   })
 }
 
