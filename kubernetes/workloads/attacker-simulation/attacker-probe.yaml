@@ -28,9 +28,13 @@ spec:
           imagePullPolicy: Always
           securityContext:
             allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
             capabilities:
               drop:
                 - ALL
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           command:
             - /bin/sh
             - -c
@@ -54,3 +58,31 @@ spec:
             requests:
               cpu: 50m
               memory: 64Mi
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: attacker-probe-netpol
+  namespace: demo-workload
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: attacker-simulation-probe
+  policyTypes:
+    - Ingress
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 53
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 80
+        - protocol: TCP
+          port: 443

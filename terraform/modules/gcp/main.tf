@@ -32,6 +32,13 @@ resource "google_compute_subnetwork" "subnet" {
     range_name    = "k8s-service-range"
     ip_cidr_range = var.services_cidr
   }
+
+  # VPC Flow Logs (Checkov CKV_GCP_26)
+  log_config {
+    aggregation_interval = "INTERVAL_5_SEC"
+    flow_sampling        = 0.5
+    metadata             = "INCLUDE_ALL_METADATA"
+  }
 }
 
 # --- Cloud Router & Cloud NAT for Private GKE Egress ---
@@ -71,6 +78,7 @@ resource "google_project_iam_member" "metric_writer" {
 }
 
 # --- Private GKE Cluster ---
+# checkov:skip=CKV_GCP_65: Reference architecture does not bind to customer specific Google Workspace domain
 resource "google_container_cluster" "primary" {
   name     = var.cluster_name
   location = var.region
@@ -81,6 +89,12 @@ resource "google_container_cluster" "primary" {
 
   network    = google_compute_network.vpc.id
   subnetwork = google_compute_subnetwork.subnet.id
+
+  # Cluster Labels (Checkov CKV_GCP_21)
+  resource_labels = {
+    environment = "dev"
+    platform    = "cloud-workload-modernization"
+  }
 
   ip_allocation_policy {
     cluster_secondary_range_name  = "k8s-pod-range"
@@ -94,15 +108,28 @@ resource "google_container_cluster" "primary" {
     master_ipv4_cidr_block  = var.master_ipv4_cidr_block
   }
 
-  # 2. Disable Basic Authentication & Issue of Client Certificates (Checkov CKV_GCP_24)
+  # 2. Master Authorized Networks (Checkov CKV_GCP_20)
+  master_authorized_networks_config {
+    cidr_blocks {
+      cidr_block   = var.subnet_cidr
+      display_name = "VPC-Subnet"
+    }
+  }
+
+  # 3. Disable Basic Authentication & Issue of Client Certificates (Checkov CKV_GCP_24)
   master_auth {
     client_certificate_config {
       issue_client_certificate = false
     }
   }
 
-  # 3. Enable Shielded Nodes at Cluster Level (Checkov CKV_GCP_69)
+  # 4. Enable Shielded Nodes at Cluster Level (Checkov CKV_GCP_69)
   enable_shielded_nodes = true
+
+  # 5. Binary Authorization (Checkov CKV_GCP_66)
+  binary_authorization {
+    evaluation_mode = "PROJECT_SINGLETON_POLICY_ENFORCE"
+  }
 
   # Workload Identity
   workload_identity_config {

@@ -46,8 +46,13 @@ resource "aws_kms_alias" "ebs" {
 }
 
 # --- VPC Architecture ---
+# checkov:skip=CKV_AWS_394: Availability zones dynamically sliced to first 3 names
 data "aws_availability_zones" "available" {
   state = "available"
+  filter {
+    name   = "opt-in-status"
+    values = ["opt-in-not-required"]
+  }
 }
 
 locals {
@@ -164,7 +169,7 @@ resource "aws_eks_cluster" "this" {
   vpc_config {
     subnet_ids              = aws_subnet.private[*].id
     endpoint_private_access = true
-    endpoint_public_access  = true
+    endpoint_public_access  = false
   }
 
   encryption_config {
