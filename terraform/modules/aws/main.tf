@@ -12,12 +12,33 @@ terraform {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
+locals {
+  # Standard KMS Key Policy granting root account administrative delegation (Checkov CKV2_AWS_64)
+  kms_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 # --- AWS KMS Customer Managed Keys (CMK) ---
 # KMS Key for EKS Cluster Envelope Encryption (Secrets)
 resource "aws_kms_key" "eks" {
   description             = "KMS CMK for EKS Secrets Envelope Encryption"
   deletion_window_in_days = 7
   enable_key_rotation     = true
+  policy                  = local.kms_policy
 
   tags = merge(var.tags, {
     Name = "${var.cluster_name}-eks-secrets-key"
@@ -34,6 +55,7 @@ resource "aws_kms_key" "ebs" {
   description             = "KMS CMK for EKS Worker Node EBS Volume Encryption"
   deletion_window_in_days = 7
   enable_key_rotation     = true
+  policy                  = local.kms_policy
 
   tags = merge(var.tags, {
     Name = "${var.cluster_name}-ebs-key"
@@ -68,6 +90,62 @@ resource "aws_vpc" "this" {
     Name                                        = "${var.cluster_name}-vpc"
     "kubernetes.io/cluster/${var.cluster_name}" = "shared"
   })
+}
+
+# Restrict default security group traffic (Checkov CKV2_AWS_12)
+resource "aws_default_security_group" "default" {
+  vpc_id = aws_vpc.this.id
+
+  # Leaving ingress and egress empty denies all default traffic
+  tags = merge(var.tags, {
+    Name = "${var.cluster_name}-default-restricted"
+  })
+}
+
+# VPC Flow Logs (Checkov CKV2_AWS_11)
+resource "aws_cloudwatch_log_group" "vpc_flow_log" {
+  name              = "/aws/vpc/${var.cluster_name}-flow-logs"
+  retention_in_days = 7
+  kms_key_id        = aws_kms_key.eks.arn
+}
+
+resource "aws_iam_role" "vpc_flow_log" {
+  name = "${var.cluster_name}-vpc-flow-log-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action    = "sts:AssumeRole"
+      Effect    = "Allow"
+      Principal = { Service = "vpc-flow-logs.amazonaws.com" }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "vpc_flow_log" {
+  name = "${var.cluster_name}-vpc-flow-log-policy"
+  role = aws_iam_role.vpc_flow_log.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+        "logs:DescribeLogGroups",
+        "logs:DescribeLogStreams"
+      ]
+      Effect   = "Allow"
+      Resource = "*"
+    }]
+  })
+}
+
+resource "aws_flow_log" "this" {
+  iam_role_arn    = aws_iam_role.vpc_flow_log.arn
+  log_destination = aws_cloudwatch_log_group.vpc_flow_log.arn
+  traffic_type    = "ALL"
+  vpc_id          = aws_vpc.this.id
 }
 
 resource "aws_subnet" "public" {

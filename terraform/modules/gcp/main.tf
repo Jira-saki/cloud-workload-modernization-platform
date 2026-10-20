@@ -41,6 +41,28 @@ resource "google_compute_subnetwork" "subnet" {
   }
 }
 
+# --- GCP Firewall Configuration (Checkov CKV2_GCP_18) ---
+resource "google_compute_firewall" "allow_internal" {
+  name        = "${var.cluster_name}-allow-internal"
+  network     = google_compute_network.vpc.id
+  project     = var.project_id
+  description = "Allow internal intra-cluster VPC traffic"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["0-65535"]
+  }
+  allow {
+    protocol = "udp"
+    ports    = ["0-65535"]
+  }
+  allow {
+    protocol = "icmp"
+  }
+
+  source_ranges = [var.subnet_cidr, var.pods_cidr, var.services_cidr]
+}
+
 # --- Cloud Router & Cloud NAT for Private GKE Egress ---
 resource "google_compute_router" "router" {
   name    = "${var.cluster_name}-router"
@@ -89,6 +111,9 @@ resource "google_container_cluster" "primary" {
 
   network    = google_compute_network.vpc.id
   subnetwork = google_compute_subnetwork.subnet.id
+
+  # Intranode Visibility (Checkov CKV_GCP_61)
+  enable_intranode_visibility = true
 
   # Cluster Labels (Checkov CKV_GCP_21)
   resource_labels = {
@@ -167,6 +192,11 @@ resource "google_container_node_pool" "primary_nodes" {
     machine_type    = var.machine_type
     service_account = google_service_account.gke_sa.email
     oauth_scopes    = ["https://www.googleapis.com/auth/cloud-platform"]
+
+    # GKE Metadata Server for Workload Identity (Checkov CKV_GCP_69)
+    workload_metadata_config {
+      mode = "GKE_METADATA"
+    }
 
     # Shielded Instance Configuration (Checkov CKV_GCP_68, CKV_GCP_70, CKV_GCP_71)
     shielded_instance_config {
