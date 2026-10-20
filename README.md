@@ -1,6 +1,10 @@
 # Cloud Workload Modernization Platform
 > **Enterprise Reference Architecture & Blueprint for Zero-Trust Multi-Tenant Cloud Migration**
 
+[English](README.md) | [日本語 (Japanese)](README.jp.md)
+
+---
+
 [![IaC Security: Checkov](https://img.shields.io/badge/IaC%20Security-Checkov%20Passed-brightgreen)](https://github.com/bridgecrewio/checkov)
 [![Container Security: Trivy](https://img.shields.io/badge/Vulnerability%20Scan-Trivy%20Enforced-blue)](https://github.com/aquasecurity/trivy)
 [![GitOps: ArgoCD](https://img.shields.io/badge/GitOps-ArgoCD%20Sync-orange)](https://argo-cd.readthedocs.io/)
@@ -16,13 +20,13 @@ This repository serves as a sanitized, production-ready enterprise reference imp
 In traditional shared web infrastructure hosting multi-tenant workloads (20+ public domains), real-world security incidents revealed critical systemic vulnerabilities:
 * **Zombie Persistence & Self-Healing Malware:** Background watchdog processes continuously respawning web shells and malicious configurations (`index.php`, `.htaccess`) upon file deletion.
 * **Privilege Abuse & Immutable File Locking:** Threat actors leveraging Linux file system attributes (`chattr +i`, `chmod 0000`) to create unkillable root-level footholds, blocking incident response engineers.
-* **Unrestricted Lateral Movement:** Symlink traversals and shared execution permissions allowing cross-tenant contamination from a single "Patient Zero" domain to isolated tenants.
+* **Unrestricted Lateral Movement:** Symlink traversals and shared execution permissions allowing cross-tenant contamination from a single "Patient Zero" domain to adjacent tenant workloads.
 * **Outbound Command & Control (C2):** Compromised worker processes initiating unauthorized egress connections to external command-and-control servers.
 
 ### The Cloud-Native Architectural Solution
 To eliminate these risks at the root-cause level, this platform implements a modernized, zero-trust cloud foundation:
 * **Immutable Infrastructure:** AWS Bottlerocket OS / GCP Container-Optimized OS (COS) providing read-only root filesystems—eliminating persistent malware footholds and disabling direct SSH access.
-* **Kernel-Level eBPF Threat Detection:** Modern eBPF probes via **Falco** to capture unauthorized syscalls (`execve`, shell spawns, privilege escalation) with zero kernel overhead.
+* **Kernel-Level eBPF Threat Detection:** Modern eBPF probes via **Falco** (`driver.kind: modern_ebpf`) capturing unauthorized syscalls (`execve`, shell spawns, privilege escalation) with zero kernel overhead.
 * **Sub-Second Closed-Loop Remediation:** An automated response loop (**Falco $\rightarrow$ Falcosidekick $\rightarrow$ Falco Talon**) dynamically labeling compromised pods (`quarantine=true`) and executing sub-second pod termination (`grace_period: 0s`), enabling automated self-healing without manual human intervention.
 * **Micro-Segmented Multi-Tenancy:** **Calico CNI** / Cloud Dataplane V2 enforcing strict default-deny policies, completely terminating lateral movement vectors.
 
@@ -37,7 +41,7 @@ To eliminate these risks at the root-cause level, this platform implements a mod
                   [ Cloud Load Balancer / WAF Enforcement ]
                                         │
 ┌───────────────────────────────────────┼───────────────────────────────────────┐
-│ Kubernetes Platform (EKS / GKE)       │                                       │
+│ Kubernetes Platform (EKS / GKE / KVM) │                                       │
 │                                       ▼                                       │
 │                         [ Micro-Segmented Tenant Pod ]                        │
 │                                       │                                       │
@@ -56,30 +60,60 @@ To eliminate these risks at the root-cause level, this platform implements a mod
 │                                 │          │                                  │
 │       ┌─────────────────────────┘          └─────────────────────────┐        │
 │       ▼ (Action 1: Immediate Isolation)                              ▼        │
-│  [ Patch Label: quarantine=true ]                           [ Delete Pod: 0s ]│
+│  [ Action: kubernetes:labelize ]                       [ Action: kubernetes:terminate ]
+│  [ Patch Label: quarantine=true ]                      [ Pod Terminated (0s) ]│
 │       │                                                              │        │
 │       ▼                                                              ▼        │
 │  [ Calico Quarantine Policy ]                             [ ReplicaSet Healing]
 │  * Drops ALL Ingress & Egress                             * Spawns clean pod  │
 │  * Execution Isolated in < 1s                             * Zero downtime     │
 └───────────────────────────────────────────────────────────────────────────────┘
-3. Technology Stack & Multi-Cloud ImplementationDomainCloud-Agnostic BaselineAWS ImplementationGCP ImplementationIaC OrchestrationTerraform 1.5+ (Modular)AWS Provider (VPC, KMS, EKS)Google Provider (VPC, Cloud NAT, GKE)Node SecurityImmutable Minimal OSAWS Bottlerocket OS (No SSH)Container-Optimized OS (Shielded GKE)Identity & AccessWorkload Identity FederationAWS IAM Roles for Service Accounts (IRSA)GKE Workload IdentityNetwork PolicyZero-Trust MicrosegmentationCalico CNI (Default-Deny)Dataplane V2 (eBPF Native)Runtime DetectioneBPF Kernel TracingFalco (modern_ebpf probe)Falco (modern_ebpf probe)Remediation LoopAutomated Event-Driven ActionFalco Talon Response EngineFalco Talon Response EngineContinuous DeliveryDeclarative GitOpsArgoCD (Pull Model)ArgoCD (Pull Model)Shift-Left SecurityCI Pre-Merge Static ScanningCheckov (IaC) & Trivy (Manifests)Checkov (IaC) & Trivy (Manifests)4. Shift-Left CI/CD & GitOps DeliveryPlaintext[ Developer Commit ] ──► [ Pull Request ]
-                               │
-                               ▼
+```
+
+---
+
+## 3. Technology Stack & Multi-Cloud Implementation
+
+| Domain | Cloud-Agnostic Baseline | AWS Implementation | GCP Implementation |
+| :--- | :--- | :--- | :--- |
+| **IaC Orchestration** | Terraform 1.6+ (Modular) | AWS Provider (VPC, KMS CMK, EKS) | Google Provider (VPC, Cloud NAT, GKE) |
+| **Node Security** | Immutable Minimal OS | AWS Bottlerocket OS (No SSH) | Container-Optimized OS (Shielded GKE) |
+| **Identity & Access** | Workload Identity Federation | AWS IAM Roles for Service Accounts (IRSA) | GKE Workload Identity |
+| **Network Policy** | Zero-Trust Microsegmentation | Calico CNI (Default-Deny) | Dataplane V2 (eBPF Native) |
+| **Runtime Detection** | eBPF Kernel Tracing | Falco (`driver.kind: modern_ebpf`) | Falco (`driver.kind: modern_ebpf`) |
+| **Remediation Loop** | Automated Event-Driven Action | Falco Talon Response Engine | Falco Talon Response Engine |
+| **Continuous Delivery** | Declarative GitOps | ArgoCD (Pull Model) | ArgoCD (Pull Model) |
+| **Shift-Left Security** | CI Pre-Merge Static Scanning | Checkov (IaC) & Trivy (Manifests) | Checkov (IaC) & Trivy (Manifests) |
+
+---
+
+## 4. Shift-Left CI/CD & GitOps Delivery
+
+```text
+[ Developer Commit ] ──► [ Pull Request ]
+                                │
+                                ▼
         [ GitHub Actions: Shift-Left Security Gate ]
-          ├── Checkov: Static Analysis on Terraform Modules
+          ├── Checkov: Static Analysis on Terraform Modules (KMS, IMDSv2)
           └── Trivy: Vulnerability & Misconfiguration Scanner
-                               │
+                                │
                        (Pass All Gates)
-                               ▼
+                                ▼
                         [ Merge to main ]
-                               │
-                               ▼ (Pull Reconcile Loop)
+                                │
+                                ▼ (Pull Reconcile Loop)
                       [ ArgoCD In-Cluster ]
-                               │
-                               ▼
-                  [ Deployed EKS / GKE Clusters ]
-5. Repository Directory LayoutPlaintextcloud-workload-modernization-platform/
+                                │
+                                ▼
+               [ Deployed EKS / GKE / KVM Clusters ]
+```
+
+---
+
+## 5. Repository Directory Layout
+
+```text
+cloud-workload-modernization-platform/
 ├── .github/
 │   └── workflows/
 │       └── shift-left-security.yaml      # Checkov & Trivy automated pipeline
@@ -109,84 +143,104 @@ To eliminate these risks at the root-cause level, this platform implements a mod
     │   ├── aws-dev/                      # Environment entry point for AWS
     │   └── gcp-dev/                      # Environment entry point for GCP
     └── modules/
-        ├── aws/                          # AWS VPC, EKS, Bottlerocket, IRSA
+        ├── aws/                          # AWS VPC, EKS, Bottlerocket, IRSA, KMS CMK
         └── gcp/                          # GCP Custom VPC, Private GKE, Workload Identity
-6. Verification & Attack SimulationTo validate the sub-second threat containment engine, run the verification script:Bash# Execute the exploit simulation script against the sandbox workload
+```
+
+---
+
+## 6. Incident Remediation Operational SLA Targets
+
+| Metric | Legacy Shared Hosting (Observed) | Modernized Cloud Platform (Target) |
+| :--- | :--- | :--- |
+| **Threat Detection Latency** | Days / Weeks (Manual inspection, audit) | **< 100 milliseconds** (eBPF syscall event) |
+| **Network Quarantine Time** | Hours (Manual `.htaccess` edit / port blocking) | **< 1.0 second** (Automated dynamic Calico policy) |
+| **Compromised Asset Containment** | Hours / Days (Manual SSH `chmod` / `rm -rf`) | **< 2.0 seconds** (Automated pod kill & clean respawn) |
+| **Human Toil per Incident** | High (Engineering manual forensic labor) | **Zero Toil** (Fully automated closed loop) |
+
+---
+
+## 7. Quickstart & Deployment Options
+
+### Option A: Local Testing on Ubuntu KVM (Recommended First Step)
+For running and validating the entire security and remediation stack on a local Ubuntu KVM or bare-metal cluster without cloud costs, follow our dedicated step-by-step guide:
+👉 **[Local Cluster Installation & Verification Runbook](docs/local-install-runbook.md)**
+
+```bash
+# 1. Initialize cluster namespaces and ArgoCD
+./scripts/bootstrap-platform.sh local
+
+# 2. Run automated sub-second remediation verification
 ./scripts/verify-remediation.sh
-Expected Telemetry Output:Plaintext[+] Spawning controlled terminal shell inside workload: demo-app-6f8b89c7d-x9z12
+```
+
+---
+
+### Option B: Multi-Cloud Infrastructure (AWS / GCP)
+
+#### AWS EKS Deployment
+```bash
+cd terraform/environments/aws-dev
+terraform init
+terraform plan
+terraform apply
+```
+
+#### GCP GKE Deployment
+```bash
+cd terraform/environments/gcp-dev
+terraform init
+terraform plan
+terraform apply
+```
+
+---
+
+## 8. Verification & Attack Simulation
+
+To validate the sub-second threat containment engine, execute the automated verification script:
+
+```bash
+./scripts/verify-remediation.sh
+```
+
+### Telemetry & Output Sequence
+```text
+============================================================
+ Threat Detection & Automated Remediation SLA Test
+ Target Namespace: demo-workload
+ SLA Threshold   : Network Severance < 1.0 Second
+============================================================
+[*] Step 1: Cleaning up any prior test probe...
+[*] Step 2: Deploying test probe pod with network inspection utilities...
+[*] Waiting for test pod to enter Ready state...
+
+--- [PHASE 1: PRE-ATTACK CONNECTIVITY CHECK] ---
+[*] Verifying baseline network access (ping 1.1.1.1)...
+[+] Baseline Confirmed: Outbound egress is ACTIVE and reachable.
+
+--- [PHASE 2: TRIGGER EXPLOIT & MEASURE REMEDIATION LATENCY] ---
+[*] Initiating interactive shell session to trigger Falco detection...
 [!] Kernel Event: Syscall execve(/bin/sh) intercepted by Falco modern_ebpf driver.
 [!] Alert dispatched to Falcosidekick -> Falco Talon webhook.
-[*] Action Triggered: kubernetes:labelize -> Applied 'quarantine=true' in 0.28s.
+[*] Action Triggered: kubernetes:labelize -> Applied 'quarantine=true' in 240ms.
 [*] Action Triggered: Calico GlobalNetworkPolicy active -> All network traffic DROPPED.
-[*] Action Triggered: kubernetes:terminate -> Pod terminated (grace_period=0s).
-[+] ReplicaSet self-healing reconciled: Fresh uncompromised pod demo-app-6f8b89c7d-k4w89 ready.
-[SUCCESS] Attack neutralized in 0.72 seconds. Zero persistent foothold established.
-7. Compliance & Sanitization DisclaimerThis repository represents a clean-room architectural reference implementation. All company identities, proprietary credentials, real-world domain records, and customer data have been completely removed and replaced with vendor-neutral mock definitions.
----
+[*] Action Triggered: kubernetes:terminate -> Pod terminated (grace_period=5s).
+[+] Quarantine label detected at +240ms!
 
-### 2. ไฟล์ `docs/threat-model.md`
-
-```markdown
-# Threat Model & Security Architecture Baseline
-
-## 1. Context & Scope
-This threat model analyzes the structural transition from legacy shared hosting architectures (hosting multi-tenant PHP/WordPress workloads) to an enterprise-grade, hardened container orchestration platform running on AWS EKS and GCP GKE.
-
-The analysis is based on STRIDE methodology and validated against observed attack patterns recorded during production incident remediation efforts.
+--- [PHASE 3: POST-ATTACK VERIFICATION & LATENCY AUDIT] ---
+[*] Testing post-attack network reachability from probe...
+[+] Network Isolation Confirmed: 100% packet loss to external network.
+------------------------------------------------------------
+ Remediation Latency Measured: 240 ms (0.240s)
+------------------------------------------------------------
+[+++] SLA VERIFICATION PASSED: Remediation executed in 240ms (< 1.0s target)!
+============================================================
+[+] Verification complete.
+```
 
 ---
 
-## 2. Target Threat Profiles (Observed Attack Vectors)
+## 9. Compliance & Sanitization Disclaimer
 
-### Threat Vector 1: Zombie Persistence & Self-Healing Watchdogs
-* **Observed Mechanism:** Attackers injected background guardian processes monitoring file modification events on `index.php`, `.htaccess`, and `header.php`. When system administrators removed malicious artifacts, the watchdog regenerated them immediately.
-* **Impact:** System restoration via manual file deletion is impossible without terminating underlying hidden system processes.
-
-### Threat Vector 2: Filesystem Attribute Hijacking (Immutable Locking)
-* **Observed Mechanism:** Exploits utilized elevated capabilities to set immutable attributes (`chattr +i`) or stripped permissions (`chmod 0000`, `d---------`) across system directories, creating root-level persistence and causing "Permission Denied" errors during remediation.
-* **Impact:** Remediation blockage; denial of administrative control.
-
-### Threat Vector 3: Lateral Movement via Shared Filesystem & Symlinks
-* **Observed Mechanism:** A single initial compromised tenant ("Patient Zero") executed symbolic link traversal (`ln -s`) and leveraged shared group access permissions to propagate web shells across adjacent customer domains hosted within the same execution boundary.
-* **Impact:** Total account compromise across 20+ independent workloads.
-
-### Threat Vector 4: Outbound Command & Control (C2) & Web Shell Infiltration
-* **Observed Mechanism:** Deployment of interactive web shells (`Gecko Shell`, obfuscated PHP droppers) executing reverse shells and establishing persistent outbound connections to malicious external IP addresses/domains to retrieve secondary payloads.
-* **Impact:** Data exfiltration, SEO poisoning, and inclusion in distributed botnet clusters.
-
----
-
-## 3. Threat Mitigation Matrix (STRIDE Mapping)
-
-| Threat Category (STRIDE) | Attack Mechanism (Legacy) | Cloud-Native Architectural Countermeasure | Verification / Enforcing Component |
-| :--- | :--- | :--- | :--- |
-| **Tampering** | Overwriting `.htaccess` and `index.php` with self-healing payloads | **Read-Only Root Filesystem:** Pod containers run with `readOnlyRootFilesystem: true`. Node instances execute on immutable OS (Bottlerocket / COS). | Kubernetes SecurityContext & OS Kernel |
-| **Elevation of Privilege** | Setting `chattr +i` and tampering with Linux file attributes | **Dropped Linux Capabilities:** Drop `ALL` capabilities; explicitly prevent `CAP_LINUX_IMMUTABLE` and `CAP_SYS_ADMIN`. Set `allowPrivilegeEscalation: false`. | Admission Controller (Kyverno / OPA) |
-| **Information Disclosure** | Reading plaintext database passwords and secrets from configuration files | **Secret Decoupling & Envelope Encryption:** Secrets managed in AWS Secrets Manager / GCP Secret Manager, protected by KMS CMK, projected via External Secrets Operator. | Cloud KMS & External Secrets Operator |
-| **Lateral Movement** | Symlink traversal and cross-domain filesystem contamination | **Tenant Namespace Isolation & Default-Deny:** Pods run in dedicated namespaces with Calico Default-Deny NetworkPolicies blocking cross-namespace traffic. | Calico CNI / Dataplane V2 |
-| **Execution (RCE)** | Shell execution inside containers (`/bin/sh`, `/bin/bash`) | **eBPF Syscall Interception:** Falco detects runtime execution of shell binaries in container workloads via `modern_ebpf`. | Falco Engine |
-| **Exfiltration** | Web shell making outbound connections to C2 domains | **Automated Sub-Second Quarantine:** Falco Talon labels pod with `quarantine=true` in < 1s, triggering Calico to drop all Ingress/Egress traffic immediately. | Falco Talon + Calico GlobalNetworkPolicy |
-
----
-
-## 4. Defense-in-Depth Control Architecture
-
-```text
-Layer 1: Code & IaC (Shift-Left)
-  ├── Checkov (Terraform security validation, enforce KMS, private endpoints)
-  └── Trivy (Container vulnerability scanner, K8s misconfiguration checks)
-
-Layer 2: Cloud Infrastructure Foundation (IaC)
-  ├── Private Cluster Endpoints (EKS/GKE master & nodes strictly isolated)
-  ├── Workload Identity / IRSA (No permanent cloud IAM keys stored on workloads)
-  └── Immutable Node OS (AWS Bottlerocket / GCP COS with read-only root)
-
-Layer 3: Network & Tenant Segmentation
-  ├── Calico CNI / Dataplane V2
-  └── Default-Deny Ingress & Egress per Namespace
-
-Layer 4: Kernel-Level Runtime Defense & Self-Healing
-  ├── Falco (modern_ebpf kernel tracepoints for zero-delay detection)
-  ├── Falco Talon (Automated closed-loop remediation trigger)
-  └── ReplicaSet Self-Healing (0-second grace period pod termination and respawn)
-5. Incident Remediation Operational SLA TargetsMetricLegacy Shared Hosting (Observed)Modernized Cloud Platform (Target)Threat Detection LatencyDays / Weeks (Manual inspection, audit)< 100 milliseconds (eBPF syscall event)Network Quarantine TimeHours (Manual .htaccess edit / port blocking)< 1 second (Automated dynamic Calico policy)Compromised Asset ContainmentHours / Days (Manual SSH chmod / rm -rf)< 2 seconds (Automated pod kill & clean respawn)Human Toil per IncidentHigh (Engineering manual forensic labor)Zero Toil (Fully automated closed loop)
+This repository represents a clean-room architectural reference implementation. All company identities, proprietary credentials, real-world domain records, and customer data have been completely removed and replaced with vendor-neutral mock definitions.
