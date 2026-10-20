@@ -1,0 +1,24 @@
+# Falco Custom Security Detection Rules
+- rule: Modernization Terminal Shell in Production
+  desc: Detects interactive shell execution within tenant application pods
+  condition: >
+    spawned_process and container and
+    (proc.name in (sh, bash, dash, ash, zsh)) and
+    k8s.ns.name != "kube-system"
+  output: >
+    Alert Terminal shell executed inside pod (pod=%k8s.pod.name ns=%k8s.ns.name
+    process=%proc.name cmdline=%proc.cmdline user=%user.name image=%container.image.repository)
+  priority: WARNING
+  tags: [security, container, execution, mitre_t1059]
+
+- rule: Inbound Reverse Shell Connection
+  desc: Detect outbound network connection initiated by interactive shell
+  condition: >
+    outbound and container and
+    proc.name in (sh, bash, dash, ash, nc, netcat, python, perl) and
+    not fd.sport in (80, 443, 8080)
+  output: >
+    Alert Potential reverse shell connection established (pod=%k8s.pod.name ns=%k8s.ns.name
+    dst_ip=%fd.rip dst_port=%fd.rport command=%proc.cmdline)
+  priority: CRITICAL
+  tags: [security, network, mitre_t1071]

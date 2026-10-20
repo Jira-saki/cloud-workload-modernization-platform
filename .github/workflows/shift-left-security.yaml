@@ -1,0 +1,63 @@
+name: Shift-Left Security Analysis
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    - cron: '0 6 * * 1' # Weekly security audit
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  iac-security:
+    name: Checkov IaC & Manifest Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Checkov Static Code Analysis
+        uses: bridgecrewio/checkov-action@master
+        with:
+          framework: terraform,kubernetes,helm
+          output_format: cli,sarif
+          output_file_path: console,results.sarif
+          soft_fail: false
+          skip_check: CKV_DOCKER_2,CKV_DOCKER_3 # Optional tailored exceptions
+
+      - name: Upload Checkov SARIF Results to GitHub Security Tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: results.sarif
+          category: checkov-iac-scan
+
+  container-fs-scan:
+    name: Trivy Vulnerability & Misconfig Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy Repo & Config Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config,fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          ignore-unfixed: true
+
+      - name: Upload Trivy SARIF Results to GitHub Security Tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-security-scan

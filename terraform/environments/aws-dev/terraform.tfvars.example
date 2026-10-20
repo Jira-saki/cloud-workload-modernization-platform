@@ -1,0 +1,8 @@
+aws_region          = "us-east-1"
+cluster_name        = "modernization-eks-dev"
+kubernetes_version  = "1.29"
+vpc_cidr            = "10.100.0.0/16"
+node_instance_types = ["t3.large"]
+desired_capacity    = 3
+min_capacity        = 2
+max_capacity        = 6

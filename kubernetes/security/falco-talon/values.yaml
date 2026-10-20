@@ -1,0 +1,28 @@
+# Falco Talon Helm Configuration
+replicaCount: 1
+
+image:
+  repository: falcosecurity/falco-talon
+  tag: latest
+  pullPolicy: IfNotPresent
+
+listen_address: "0.0.0.0"
+listen_port: 2803
+
+log_level: info
+
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+  name: falco-talon
+
+config:
+  notifiers:
+    slack:
+      webhook_url: "https://hooks.slack.com/services/DUMMY/WEBHOOK/URL"
+  actions:
+    kubernetes:
+      # In-cluster authorization for pod labeling and deletion
+      kubeconfig: ""

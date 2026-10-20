@@ -1,0 +1,35 @@
+apiVersion: projectcalico.org/v3
+kind: GlobalNetworkPolicy
+metadata:
+  name: platform-default-deny-tenants
+spec:
+  order: 1000
+  selector: tenant == "demo"
+  types:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow intra-namespace traffic
+    - action: Allow
+      source:
+        selector: tenant == "demo"
+    # Allow traffic from ingress controllers
+    - action: Allow
+      source:
+        selector: app.kubernetes.io/name == "ingress-nginx" || app.kubernetes.io/name == "aws-load-balancer-controller"
+  egress:
+    # Allow DNS resolution
+    - action: Allow
+      protocol: UDP
+      destination:
+        ports:
+          - 53
+    - action: Allow
+      protocol: TCP
+      destination:
+        ports:
+          - 53
+    # Allow intra-namespace egress
+    - action: Allow
+      destination:
+        selector: tenant == "demo"

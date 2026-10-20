@@ -1,0 +1,51 @@
+# Falco Helm Values Configuration
+# Hardened for Container-Optimized OS (GCP GKE) and Bottlerocket (AWS EKS)
+# Notice: Bottlerocket and COS lack kernel headers required for dynamic kernel module compilation.
+# Therefore, modern_ebpf MUST be strictly configured.
+driver:
+  kind: modern_ebpf # Modern eBPF probe (requires Linux Kernel 5.8+)
+  loader:
+    enabled: false # No need to download/compile kernel module externally
+
+falcosidekick:
+  enabled: true
+  webui:
+    enabled: true
+  config:
+    webhook:
+      address: "http://falco-talon:2803" # Falco Talon listener
+
+falco:
+  json_output: true
+  json_include_output_property: true
+  json_include_tags_property: true
+  priority: notice
+  buffered_outputs: false
+  grpc:
+    enabled: true
+    bind_address: "unix:///var/run/falco/falco.sock"
+
+customRules:
+  modernization-rules.yaml: |-
+    - rule: Terminal Shell in Production Container
+      desc: A shell was spawned inside an active workload container
+      condition: >
+        spawned_process and container and
+        (proc.name in (bash, sh, zsh, ksh, csh) or proc.cmdline wildcard "*sh") and
+        not user_known_shell_executions
+      output: >
+        Notice Interactive shell spawned in container (user=%user.name container_id=%container.id
+        image=%container.image.repository pod=%k8s.pod.name ns=%k8s.ns.name cmdline=%proc.cmdline)
+      priority: WARNING
+      tags: [container, mitre_execution, pci_dss]
+
+    - rule: Unauthorized Sensitive File Read
+      desc: An application container read sensitive credential or system files
+      condition: >
+        open_read and container and
+        (fd.name startswith "/etc/shadow" or fd.name startswith "/etc/sudoers" or fd.name wildcard "*/.kube/config" or fd.name wildcard "*/.aws/credentials")
+      output: >
+        Warning Sensitive credential file accessed (user=%user.name file=%fd.name
+        container_id=%container.id pod=%k8s.pod.name ns=%k8s.ns.name cmd=%proc.cmdline)
+      priority: ERROR
+      tags: [filesystem, mitre_credential_access]

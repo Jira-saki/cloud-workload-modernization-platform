@@ -1,0 +1,31 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: platform-security-alerts
+  namespace: monitoring
+  labels:
+    role: alert-rules
+    prometheus: k8s
+spec:
+  groups:
+    - name: security.rules
+      rules:
+        - alert: PodInQuarantineState
+          expr: kube_pod_labels{label_quarantine="true"} > 0
+          for: 1m
+          labels:
+            severity: critical
+            team: secops
+          annotations:
+            summary: "Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} has been quarantined"
+            description: "A runtime threat triggered Falco Talon to isolate this pod from the network."
+
+        - alert: KubeContainerCrashLooping
+          expr: rate(kube_pod_container_status_restarts_total[5m]) * 60 > 2
+          for: 5m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Container {{ $labels.container }} is crashlooping"
+            description: "Container {{ $labels.container }} in pod {{ $labels.pod }} restarted more than 2 times in 5 minutes."

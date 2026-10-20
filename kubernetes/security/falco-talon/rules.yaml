@@ -1,0 +1,48 @@
+# Falco Talon Automated Remediation Rules
+# Combines Calico network quarantine isolation (kubernetes:labelize)
+# with self-healing pod resurrection (kubernetes:terminate).
+
+- name: Isolate and Terminate Compromised Shell Pod
+  description: Apply Calico quarantine label then terminate pod to trigger clean ReplicaSet self-healing
+  match:
+    rules:
+      - "Terminal Shell in Production Container"
+      - "Modernization Terminal Shell in Production"
+  actions:
+    # 1. Immediate sub-second network cutoff via Calico GlobalNetworkPolicy
+    - action: kubernetes:labelize
+      parameters:
+        labels:
+          quarantine: "true"
+          security.remediation.status: "quarantined"
+
+    # 2. Terminate the infected container so ReplicaSet/Deployment spins up a fresh, clean Pod
+    - action: kubernetes:terminate
+      parameters:
+        grace_period_seconds: 5
+
+    # 3. Dispatch high-priority SecOps alert
+    - action: notify:slack
+      parameters:
+        channel: "#secops-alerts"
+        message: "Automated remediation triggered on {{ .Target.Pod }}: Quarantined via Calico and terminated for self-healing."
+
+- name: Immediate Cutoff and Kill on Reverse Shell C2
+  description: Sub-second network severance and zero-grace-period termination for reverse shell attacks
+  match:
+    rules:
+      - "Inbound Reverse Shell Connection"
+  actions:
+    - action: kubernetes:labelize
+      parameters:
+        labels:
+          quarantine: "true"
+
+    - action: kubernetes:terminate
+      parameters:
+        grace_period_seconds: 0
+
+    - action: notify:slack
+      parameters:
+        channel: "#secops-alerts"
+        message: "Critical breach neutralized: Pod {{ .Target.Pod }} isolated and terminated immediately."

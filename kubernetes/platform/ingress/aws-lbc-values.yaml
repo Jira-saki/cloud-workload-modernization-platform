@@ -1,0 +1,17 @@
+# Helm values template for AWS Load Balancer Controller
+clusterName: modernization-eks-dev
+serviceAccount:
+  create: true
+  name: aws-load-balancer-controller
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/aws-load-balancer-controller-irsa"
+region: us-east-1
+vpcId: vpc-0123456789abcdef0
+replicaCount: 2
+resources:
+  limits:
+    cpu: 200m
+    memory: 500Mi
+  requests:
+    cpu: 100m
+    memory: 200Mi

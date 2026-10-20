@@ -1,0 +1,16 @@
+apiVersion: projectcalico.org/v3
+kind: GlobalNetworkPolicy
+metadata:
+  name: platform-quarantine-policy
+spec:
+  order: 20
+  selector: quarantine == "true"
+  types:
+    - Ingress
+    - Egress
+  ingress:
+    # Explicitly Deny all incoming traffic
+    - action: Deny
+  egress:
+    # Explicitly Deny all outgoing traffic to sever C2 and prevent lateral movement
+    - action: Deny

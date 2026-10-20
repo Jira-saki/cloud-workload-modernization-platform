@@ -1,0 +1,119 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-ingress
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/example-org/cloud-workload-modernization-platform.git
+    targetRevision: HEAD
+    path: kubernetes/platform/ingress
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-observability
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/example-org/cloud-workload-modernization-platform.git
+    targetRevision: HEAD
+    path: kubernetes/platform/observability
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-security-calico
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/example-org/cloud-workload-modernization-platform.git
+    targetRevision: HEAD
+    path: kubernetes/security/calico
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-security-falco
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/example-org/cloud-workload-modernization-platform.git
+    targetRevision: HEAD
+    path: kubernetes/security/falco
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: falco
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-security-falco-talon
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/example-org/cloud-workload-modernization-platform.git
+    targetRevision: HEAD
+    path: kubernetes/security/falco-talon
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: falco
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: workloads-demo-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/example-org/cloud-workload-modernization-platform.git
+    targetRevision: HEAD
+    path: kubernetes/workloads/demo-app
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: demo-workload
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

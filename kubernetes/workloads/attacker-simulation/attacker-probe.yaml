@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: attacker-simulation-probe
+  namespace: demo-workload
+  labels:
+    app.kubernetes.io/name: attacker-simulation-probe
+    role: security-drill
+spec:
+  ttlSecondsAfterFinished: 300
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: attacker-simulation-probe
+        tenant: demo
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: probe
+          image: curlimages/curl:8.5.0
+          command:
+            - /bin/sh
+            - -c
+            - |
+              echo "[*] Attacker simulation started at $(date)"
+              echo "[*] Stage 1: Spawning interactive shell session (Triggers Falco Rule: Terminal Shell in Production)"
+              /bin/sh -c "echo Simulated unauthorized shell execution; sleep 2"
+              
+              echo "[*] Stage 2: Simulating lateral port scan against cluster services"
+              for port in 80 443 8080 2379; do
+                nc -z -w 1 10.96.0.1 $port 2>/dev/null && echo "[!] Discovered open port $port" || true
+              done
+
+              echo "[*] Stage 3: Waiting to observe automated Calico quarantine intervention..."
+              sleep 10
+              echo "[*] Simulation complete."
+          resources:
+            limits:
+              cpu: 100m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
