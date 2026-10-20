@@ -101,6 +101,7 @@ resource "google_project_iam_member" "metric_writer" {
 
 # --- Private GKE Cluster ---
 # checkov:skip=CKV_GCP_65: Reference architecture does not bind to customer specific Google Workspace domain
+# checkov:skip=CKV_GCP_68: Default node pool is deleted; custom node pool primary_nodes defines secure boot
 # checkov:skip=CKV_GCP_69: Default node pool is deleted; custom node pool primary_nodes defines GKE_METADATA
 resource "google_container_cluster" "primary" {
   name     = var.cluster_name
@@ -110,10 +111,15 @@ resource "google_container_cluster" "primary" {
   remove_default_node_pool = true
   initial_node_count       = 1
 
-  # GKE Metadata Server (Checkov CKV_GCP_69)
+  # GKE Metadata Server & Shielded Config (Checkov CKV_GCP_68, CKV_GCP_69)
   node_config {
     workload_metadata_config {
       mode = "GKE_METADATA"
+    }
+
+    shielded_instance_config {
+      enable_secure_boot          = true
+      enable_integrity_monitoring = true
     }
   }
 
