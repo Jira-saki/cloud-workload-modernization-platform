@@ -1,5 +1,5 @@
 # Cloud Workload Modernization Platform
-> **Enterprise Reference Architecture & Blueprint for Zero-Trust Multi-Tenant Cloud Migration**
+> **Enterprise Reference Architecture & Blueprint for Zero-Trust Multi-Tenant Workloads on Google Kubernetes Engine (GKE)**
 
 [English](README.md) | [日本語 (Japanese)](README.jp.md)
 
@@ -14,7 +14,7 @@
 
 ## 1. Executive Summary & Architectural Motivation
 
-This repository serves as a sanitized, production-ready enterprise reference implementation designed to address the systemic operational toils and security failure modes of legacy shared hosting environments. 
+This repository serves as a sanitized, production-ready enterprise reference implementation designed to run on **Google Kubernetes Engine (GKE)** and address the systemic operational toils and security failure modes of legacy shared hosting environments.
 
 ### The Real-World Engineering Problem (Legacy Failure Modes)
 In traditional shared web infrastructure hosting multi-tenant workloads (20+ public domains), real-world security incidents revealed critical systemic vulnerabilities:
@@ -24,11 +24,11 @@ In traditional shared web infrastructure hosting multi-tenant workloads (20+ pub
 * **Outbound Command & Control (C2):** Compromised worker processes initiating unauthorized egress connections to external command-and-control servers.
 
 ### The Cloud-Native Architectural Solution
-To eliminate these risks at the root-cause level, this platform implements a modernized, zero-trust cloud foundation:
-* **Immutable Infrastructure:** AWS Bottlerocket OS / GCP Container-Optimized OS (COS) providing read-only root filesystems—eliminating persistent malware footholds and disabling direct SSH access.
+To eliminate these risks at the root-cause level, this platform implements a modernized, zero-trust foundation on GKE:
+* **Immutable Infrastructure:** Shielded GKE nodes running Container-Optimized OS (COS) with Secure Boot and a read-only root filesystem—eliminating persistent malware footholds and disabling direct SSH access.
 * **Kernel-Level eBPF Threat Detection:** Modern eBPF probes via **Falco** (`driver.kind: modern_ebpf`) capturing unauthorized syscalls (`execve`, shell spawns, privilege escalation) with zero kernel overhead.
 * **Sub-Second Closed-Loop Remediation:** An automated response loop (**Falco $\rightarrow$ Falcosidekick $\rightarrow$ Falco Talon**) dynamically labeling compromised pods (`quarantine=true`) and executing sub-second pod termination (`grace_period: 0s`), enabling automated self-healing without manual human intervention.
-* **Micro-Segmented Multi-Tenancy:** **Calico CNI** / Cloud Dataplane V2 enforcing strict default-deny policies, completely terminating lateral movement vectors.
+* **Micro-Segmented Multi-Tenancy:** **GKE Calico Network Policy** enforcing strict default-deny policies, completely terminating lateral movement vectors.
 
 ---
 
@@ -38,10 +38,10 @@ To eliminate these risks at the root-cause level, this platform implements a mod
                            [ External Ingress Traffic ]
                                         │
                                         ▼
-                  [ Cloud Load Balancer / WAF Enforcement ]
+                  [ Cloud Load Balancer / Cloud Armor WAF ]
                                         │
 ┌───────────────────────────────────────┼───────────────────────────────────────┐
-│ Kubernetes Platform (EKS / GKE / KVM) │                                       │
+│ Kubernetes Platform (GCP GKE)         │                                       │
 │                                       ▼                                       │
 │                         [ Micro-Segmented Tenant Pod ]                        │
 │                                       │                                       │
@@ -72,18 +72,18 @@ To eliminate these risks at the root-cause level, this platform implements a mod
 
 ---
 
-## 3. Technology Stack & Multi-Cloud Implementation
+## 3. Technology Stack & GKE Implementation
 
-| Domain | Cloud-Agnostic Baseline | AWS Implementation | GCP Implementation |
-| :--- | :--- | :--- | :--- |
-| **IaC Orchestration** | Terraform 1.6+ (Modular) | AWS Provider (VPC, KMS CMK, EKS) | Google Provider (VPC, Cloud NAT, GKE) |
-| **Node Security** | Immutable Minimal OS | AWS Bottlerocket OS (No SSH) | Container-Optimized OS (Shielded GKE) |
-| **Identity & Access** | Workload Identity Federation | AWS IAM Roles for Service Accounts (IRSA) | GKE Workload Identity |
-| **Network Policy** | Zero-Trust Microsegmentation | Calico CNI (Default-Deny) | Dataplane V2 (eBPF Native) |
-| **Runtime Detection** | eBPF Kernel Tracing | Falco (`driver.kind: modern_ebpf`) | Falco (`driver.kind: modern_ebpf`) |
-| **Remediation Loop** | Automated Event-Driven Action | Falco Talon Response Engine | Falco Talon Response Engine |
-| **Continuous Delivery** | Declarative GitOps | ArgoCD (Pull Model) | ArgoCD (Pull Model) |
-| **Shift-Left Security** | CI Pre-Merge Static Scanning | Checkov (IaC) & Trivy (Manifests) | Checkov (IaC) & Trivy (Manifests) |
+| Domain | Cloud-Native Baseline | GKE Production Implementation |
+| :--- | :--- | :--- |
+| **IaC Orchestration** | Terraform 1.6+ (Modular) | Google Provider (VPC, Cloud NAT, Private GKE) |
+| **Node Security** | Immutable Minimal OS | Container-Optimized OS (Shielded GKE, Secure Boot) |
+| **Identity & Access** | Workload Identity Federation | GKE Workload Identity & GKE Metadata Server |
+| **Network Policy** | Zero-Trust Microsegmentation | Calico NetworkPolicy (Default-Deny Ingress/Egress) |
+| **Runtime Detection** | eBPF Kernel Tracing | Falco (`driver.kind: modern_ebpf`) |
+| **Remediation Loop** | Automated Event-Driven Action | Falco Talon Response Engine |
+| **Continuous Delivery** | Declarative GitOps | ArgoCD (App-of-Apps Pattern) |
+| **Shift-Left Security** | CI Pre-Merge Static Scanning | Checkov (IaC CIS Benchmarks) & Trivy (Vulnerabilities) |
 
 ---
 
@@ -94,7 +94,7 @@ To eliminate these risks at the root-cause level, this platform implements a mod
                                 │
                                 ▼
         [ GitHub Actions: Shift-Left Security Gate ]
-          ├── Checkov: Static Analysis on Terraform Modules (KMS, IMDSv2)
+          ├── Checkov: Static Analysis on Terraform Modules (CIS GCP Benchmarks)
           └── Trivy: Vulnerability & Misconfiguration Scanner
                                 │
                        (Pass All Gates)
@@ -105,7 +105,7 @@ To eliminate these risks at the root-cause level, this platform implements a mod
                       [ ArgoCD In-Cluster ]
                                 │
                                 ▼
-               [ Deployed EKS / GKE / KVM Clusters ]
+                       [ Deployed GKE Cluster ]
 ```
 
 ---
@@ -119,14 +119,13 @@ cloud-workload-modernization-platform/
 │       └── shift-left-security.yaml      # Checkov & Trivy automated pipeline
 ├── docs/
 │   ├── architecture-overview.md          # End-to-end design specifications
-│   ├── threat-model.md                   # Formal threat model & mitigation map
-│   └── local-install-runbook.md          # Local Ubuntu KVM setup & verification runbook
+│   └── threat-model.md                   # Formal threat model & mitigation map
 ├── kubernetes/
 │   ├── gitops/
 │   │   ├── bootstrap/                    # ArgoCD root application (App-of-Apps)
 │   │   └── apps/                         # Declarative platform components
 │   ├── platform/
-│   │   ├── ingress/                      # AWS LBC / GCP Ingress controllers
+│   │   ├── ingress/                      # GKE Ingress controller configuration
 │   │   └── observability/                # Prometheus & Alertmanager configs
 │   ├── security/
 │   │   ├── calico/                       # Calico GlobalNetworkPolicy & quarantine
@@ -140,10 +139,8 @@ cloud-workload-modernization-platform/
 │   └── verify-remediation.sh             # Threat detection verification test
 └── terraform/
     ├── environments/
-    │   ├── aws-dev/                      # Environment entry point for AWS
     │   └── gcp-dev/                      # Environment entry point for GCP
     └── modules/
-        ├── aws/                          # AWS VPC, EKS, Bottlerocket, IRSA, KMS CMK
         └── gcp/                          # GCP Custom VPC, Private GKE, Workload Identity
 ```
 
@@ -160,33 +157,11 @@ cloud-workload-modernization-platform/
 
 ---
 
-## 7. Quickstart & Deployment Options
+## 7. Quickstart & Deployment (GCP GKE)
 
-### Option A: Local Testing on Ubuntu KVM (Recommended First Step)
-For running and validating the entire security and remediation stack on a local Ubuntu KVM or bare-metal cluster without cloud costs, follow our dedicated step-by-step guide:
-👉 **[Local Cluster Installation & Verification Runbook](docs/local-install-runbook.md)**
+**Prerequisites:** a GCP project with billing and the Kubernetes Engine & Compute Engine APIs enabled; `gcloud`, `terraform` (>= 1.6), `kubectl`, and `helm` installed; authenticated via `gcloud auth application-default login`. Copy `terraform.tfvars.example` to `terraform.tfvars` and set `project_id`.
 
-```bash
-# 1. Initialize cluster namespaces and ArgoCD
-./scripts/bootstrap-platform.sh local
-
-# 2. Run automated sub-second remediation verification
-./scripts/verify-remediation.sh
-```
-
----
-
-### Option B: Multi-Cloud Infrastructure (AWS / GCP)
-
-#### AWS EKS Deployment
-```bash
-cd terraform/environments/aws-dev
-terraform init
-terraform plan
-terraform apply
-```
-
-#### GCP GKE Deployment
+### Step 1: Provision GKE Infrastructure via Terraform
 ```bash
 cd terraform/environments/gcp-dev
 terraform init
@@ -194,11 +169,25 @@ terraform plan
 terraform apply
 ```
 
+### Step 2: Connect kubectl to the GKE Cluster
+```bash
+gcloud container clusters get-credentials modernization-gke-dev --region us-central1 --project <YOUR_GCP_PROJECT_ID>
+```
+
+### Step 3: Bootstrap Platform Services & GitOps Stack
+```bash
+# From repository root
+./scripts/bootstrap-platform.sh gke
+```
+
+### Step 4: Verify Sub-Second Remediation & Threat Containment
+Run `./scripts/verify-remediation.sh` against the GKE cluster (see Section 8).
+
 ---
 
 ## 8. Verification & Attack Simulation
 
-To validate the sub-second threat containment engine, execute the automated verification script:
+To validate the sub-second threat containment engine, execute the automated verification script against your GKE cluster context:
 
 ```bash
 ./scripts/verify-remediation.sh

@@ -16,7 +16,7 @@ spec:
     # Allow traffic from ingress controllers
     - action: Allow
       source:
-        selector: app.kubernetes.io/name == "ingress-nginx" || app.kubernetes.io/name == "aws-load-balancer-controller"
+        selector: app.kubernetes.io/name == "ingress-nginx" || app.kubernetes.io/name == "gke-ingress"
   egress:
     # Allow DNS resolution
     - action: Allow

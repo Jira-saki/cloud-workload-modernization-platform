@@ -12,10 +12,10 @@ This document defines the threat vectors, attacker techniques (mapped against MI
 | **TH-01** | IaC misconfiguration / Public cloud resource leak | T1580 (Cloud Infrastructure Discovery) | Pre-commit & CI validation with Checkov | GitHub Actions blocks pull requests failing CIS benchmarks |
 | **TH-02** | Vulnerable container dependencies / base images | T1190 (Exploit Public-Facing Application) | Trivy filesystem & image vulnerability scanner in CI | Critical/High CVE gating before deployment |
 | **TH-03** | Lateral movement between tenant pods | T1210 (Exploitation of Remote Services) | Calico GlobalNetworkPolicy (Default Deny Ingress/Egress) | Calico flow logs + Prometheus network metric alerts |
-| **TH-04** | Container escape / Kernel privilege escalation | T1611 (Escape to Host) | Bottlerocket OS + ReadOnlyRootFilesystem + Non-root execution | Falco eBPF syscall monitoring (Privileged container check) |
+| **TH-04** | Container escape / Kernel privilege escalation | T1611 (Escape to Host) | Container-Optimized OS (COS) + ReadOnlyRootFilesystem + Non-root execution | Falco eBPF syscall monitoring (Privileged container check) |
 | **TH-05** | Interactive shell spawn in production container | T1059.004 (Unix Shell Execution) | Minimal scratch/distroless base images; seccomp profile | Falco rule `Terminal shell in container` |
 | **TH-06** | Compromised pod exfiltrating data to external C2 | T1071 (Application Layer Protocol) | Calico Egress domain filtering & strict CIDR white-listing | Falco outbound network rule + Falco Talon dynamic quarantine label |
-| **TH-07** | Pod credential abuse against Cloud API | T1078 (Valid Accounts) | Cloud Workload Identity (GCP) & IRSA (AWS); IMDSv2 Hop-limit 1 | CloudTrail / GCP Audit Logs monitoring credential usage |
+| **TH-07** | Pod credential abuse against Cloud API | T1078 (Valid Accounts) | GKE Workload Identity & GKE Metadata Server protection | GCP Cloud Audit Logs monitoring credential usage |
 
 ---
 

@@ -6,7 +6,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/example-org/cloud-workload-modernization-platform.git
+    repoURL: https://github.com/Jira-saki/cloud-workload-modernization-platform.git
     targetRevision: HEAD
     path: kubernetes/platform/ingress
   destination:
@@ -25,7 +25,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/example-org/cloud-workload-modernization-platform.git
+    repoURL: https://github.com/Jira-saki/cloud-workload-modernization-platform.git
     targetRevision: HEAD
     path: kubernetes/platform/observability
   destination:
@@ -46,7 +46,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/example-org/cloud-workload-modernization-platform.git
+    repoURL: https://github.com/Jira-saki/cloud-workload-modernization-platform.git
     targetRevision: HEAD
     path: kubernetes/security/calico
   destination:
@@ -65,7 +65,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/example-org/cloud-workload-modernization-platform.git
+    repoURL: https://github.com/Jira-saki/cloud-workload-modernization-platform.git
     targetRevision: HEAD
     path: kubernetes/security/falco
   destination:
@@ -86,7 +86,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/example-org/cloud-workload-modernization-platform.git
+    repoURL: https://github.com/Jira-saki/cloud-workload-modernization-platform.git
     targetRevision: HEAD
     path: kubernetes/security/falco-talon
   destination:
@@ -105,7 +105,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/example-org/cloud-workload-modernization-platform.git
+    repoURL: https://github.com/Jira-saki/cloud-workload-modernization-platform.git
     targetRevision: HEAD
     path: kubernetes/workloads/demo-app
   destination:

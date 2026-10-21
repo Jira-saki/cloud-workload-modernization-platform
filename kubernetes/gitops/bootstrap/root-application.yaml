@@ -8,7 +8,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/example-org/cloud-workload-modernization-platform.git
+    repoURL: https://github.com/Jira-saki/cloud-workload-modernization-platform.git
     targetRevision: HEAD
     path: kubernetes/gitops/apps
   destination:

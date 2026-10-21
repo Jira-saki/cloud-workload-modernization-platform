@@ -5,11 +5,11 @@
 # ==============================================================================
 set -euo pipefail
 
-PROVIDER="${1:-local}"
+PROVIDER="${1:-gke}"
 
 echo "============================================================"
 echo " Cloud Workload Modernization Platform Bootstrapper"
-echo " Target Target/Environment: ${PROVIDER}"
+echo " Target Environment: ${PROVIDER}"
 echo " Current Context: $(kubectl config current-context 2>/dev/null || echo 'default')"
 echo "============================================================"
 
@@ -38,10 +38,10 @@ kubectl label namespace demo-workload pod-security.kubernetes.io/enforce=restric
 kubectl label namespace demo-workload pod-security.kubernetes.io/audit=restricted --overwrite
 kubectl label namespace demo-workload pod-security.kubernetes.io/warn=restricted --overwrite
 
-# 4. Check Calico CNI on local/KVM cluster
+# 4. Check Calico CNI on GKE cluster
 if ! kubectl get crd globalnetworkpolicies.projectcalico.org &>/dev/null; then
   echo "[!] Notice: Calico CRDs (projectcalico.org) not detected on this cluster."
-  echo "    For local Ubuntu KVM, ensure Calico CNI is installed to enforce GlobalNetworkPolicies:"
+  echo "    Ensure Calico network policy is enabled on your GKE cluster or install Tigera operator:"
   echo "    kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/tigera-operator.yaml"
   echo "    kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/custom-resources.yaml"
 else

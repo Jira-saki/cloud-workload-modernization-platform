@@ -1,5 +1,5 @@
 # クラウドワークロード近代化プラットフォーム (Cloud Workload Modernization Platform)
-> **ゼロトラスト・マルチテナント・クラウド移行のためのエンタープライズ・リファレンスアーキテクチャ**
+> **Google Kubernetes Engine (GKE) 上でのゼロトラスト・マルチテナント運用のためのエンタープライズ・リファレンスアーキテクチャ**
 
 [English](README.md) | [日本語 (Japanese)](README.jp.md)
 
@@ -14,7 +14,7 @@
 
 ## 1. エグゼクティブサマリー & アーキテクチャの動機
 
-本リポジトリは、従来の共有ホスティング環境における構造的な運用負荷およびセキュリティ障害モードを根本解決するために設計された、サニタイズ済みの本番仕様エンタープライズ・リファレンス実装です。
+本リポジトリは、**Google Kubernetes Engine (GKE)** 上で動作し、従来の共有ホスティング環境における構造的な運用負荷およびセキュリティ障害モードを根本解決するために設計された、サニタイズ済みの本番仕様エンタープライズ・リファレンス実装です。
 
 ### 従来のレガシー環境における課題（実世界のインシデント要因）
 多数のマルチテナント・ワークロード（20以上のパブリックドメイン）を抱える従来の共有サーバー基盤では、以下のような致命的な脆弱性が顕在化していました：
@@ -24,11 +24,11 @@
 * **不正な外部C2（Command & Control）通信:** 侵害されたワーカープロセスが外部の悪意あるC2サーバーへ不正なアウトバウンド通信を確立。
 
 ### クラウドネイティブな解決アプローチ
-本プラットフォームは、これらのリスクを根本から排除するため、ゼロトラストに基づく近代的なクラウド基盤を確立します：
-* **イミュータブル（不変）インフラストラクチャ:** AWS Bottlerocket OS / GCP Container-Optimized OS (COS) を採用し、読み取り専用ルートファイルシステム（Read-only Root FS）を実現。不正な永続マルウェアの侵入を防ぎ、SSH直接ログインを無効化。
+本プラットフォームは、これらのリスクを根本から排除するため、GKE 上にゼロトラストに基づく近代的な基盤を確立します：
+* **イミュータブル（不変）インフラストラクチャ:** Container-Optimized OS (COS) を搭載した Shielded GKE ノード（セキュアブート有効）と読み取り専用ルートファイルシステム（Read-only Root FS）を採用。不正な永続マルウェアの侵入を防ぎ、SSH直接ログインを無効化。
 * **カーネルレベルのeBPF脅威検知:** **Falco**（`driver.kind: modern_ebpf`）により、カーネルのオーバーヘッドなしに不正なシステムコール（`execve`、シェル起動、権限昇格）をリアルタイム検知。
 * **1秒未満の自動修復ループ（Closed-Loop Remediation）:** 自動応答パイプライン（**Falco $\rightarrow$ Falcosidekick $\rightarrow$ Falco Talon**）が侵害されたPodに即座に`quarantine=true`ラベルを付与し、1秒未満で強制終了（`grace_period: 0s`）。人手による介入なしでセルフヒーリングを実行。
-* **マイクロセグメンテーションによるマルチテナンシー:** **Calico CNI** / Cloud Dataplane V2 により厳格なDefault-Denyポリシーを適用し、横方向への侵害経路を完全遮断。
+* **マイクロセグメンテーションによるマルチテナンシー:** **GKE Calico Network Policy** により厳格なDefault-Denyポリシーを適用し、横方向への侵害経路を完全遮断。
 
 ---
 
@@ -38,10 +38,10 @@
                            [ 外部からのIngressトラフィック ]
                                         │
                                         ▼
-                   [ クラウドLoad Balancer / WAF保護 ]
+                   [ クラウドLoad Balancer / Cloud Armor WAF ]
                                         │
 ┌───────────────────────────────────────┼───────────────────────────────────────┐
-│ Kubernetes Platform (EKS / GKE / KVM) │                                       │
+│ Kubernetes Platform (GCP GKE)         │                                       │
 │                                       ▼                                       │
 │                         [ 分離されたテナントPod ]                             │
 │                                       │                                       │
@@ -72,18 +72,18 @@
 
 ---
 
-## 3. 技術スタック & マルチクラウド実装
+## 3. 技術スタック & GKE 実装仕様
 
-| 領域 | クラウド非依存のベースライン | AWS 実装仕様 | GCP 実装仕様 |
-| :--- | :--- | :--- | :--- |
-| **IaC オーケストレーション** | Terraform 1.6+（モジュール設計） | AWS Provider（VPC, KMS CMK, EKS） | Google Provider（VPC, Cloud NAT, GKE） |
-| **ノードセキュリティ** | イミュータブル最小構成OS | AWS Bottlerocket OS（SSH無効化） | Container-Optimized OS（Shielded GKE） |
-| **ID & アクセス管理** | ワークロードIDフェデレーション | AWS IAM Roles for Service Accounts (IRSA) | GKE Workload Identity |
-| **ネットワークポリシー** | ゼロトラスト・マイクロセグメンテーション | Calico CNI（Default-Deny） | Dataplane V2（eBPF Native） |
-| **ランタイム脅威検知** | eBPF カーネルトレーシング | Falco（`driver.kind: modern_ebpf`） | Falco（`driver.kind: modern_ebpf`） |
-| **自動修復ループ** | イベント駆動型自動アクション | Falco Talon レスポンスエンジン | Falco Talon レスポンスエンジン |
-| **継続的デリバリー** | 宣言的 GitOps | ArgoCD（Pull Model） | ArgoCD（Pull Model） |
-| **シフトレフトセキュリティ** | CIプリマージ静的スキャン | Checkov（IaC）& Trivy（マニフェスト） | Checkov（IaC）& Trivy（マニフェスト） |
+| 領域 | クラウドネイティブ・ベースライン | GKE 本番実装仕様 |
+| :--- | :--- | :--- |
+| **IaC オーケストレーション** | Terraform 1.6+（モジュール設計） | Google Provider（VPC, Cloud NAT, Private GKE） |
+| **ノードセキュリティ** | イミュータブル最小構成OS | Container-Optimized OS（Shielded GKE, セキュアブート） |
+| **ID & アクセス管理** | ワークロードIDフェデレーション | GKE Workload Identity & GKE メタデータサーバー |
+| **ネットワークポリシー** | ゼロトラスト・マイクロセグメンテーション | Calico NetworkPolicy（Default-Deny Ingress/Egress） |
+| **ランタイム脅威検知** | eBPF カーネルトレーシング | Falco（`driver.kind: modern_ebpf`） |
+| **自動修復ループ** | イベント駆動型自動アクション | Falco Talon レスポンスエンジン |
+| **継続的デリバリー** | 宣言的 GitOps | ArgoCD（App-of-Apps パターン） |
+| **シフトレフトセキュリティ** | CIプリマージ静的スキャン | Checkov（IaC CIS ベンチマーク）& Trivy（脆弱性検知） |
 
 ---
 
@@ -94,7 +94,7 @@
                                 │
                                 ▼
         [ GitHub Actions: シフトレフト・セキュリティゲート ]
-          ├── Checkov: Terraformモジュールの静的解析 (KMS暗号化, IMDSv2)
+          ├── Checkov: Terraformモジュールの静的解析 (CIS GCP ベンチマーク)
           └── Trivy: コンテナ脆弱性 & K8s構成ミスのスキャン
                                 │
                         (全テスト合格)
@@ -105,7 +105,7 @@
                       [ クラスター内 ArgoCD ]
                                 │
                                 ▼
-               [ デプロイ先: EKS / GKE / KVM クラスター ]
+                       [ デプロイ先: GKE クラスター ]
 ```
 
 ---
@@ -119,14 +119,13 @@ cloud-workload-modernization-platform/
 │       └── shift-left-security.yaml      # Checkov & Trivy 自動化パイプライン
 ├── docs/
 │   ├── architecture-overview.md          # アーキテクチャ設計仕様書
-│   ├── threat-model.md                   # 脅威モデル & 対策マッピング (STRIDE)
-│   └── local-install-runbook.md          # ローカル Ubuntu KVM 構築・検証ランブック
+│   └── threat-model.md                   # 脅威モデル & 対策マッピング (STRIDE)
 ├── kubernetes/
 │   ├── gitops/
 │   │   ├── bootstrap/                    # ArgoCD ルートアプリケーション (App-of-Apps)
 │   │   └── apps/                         # 宣言的プラットフォームコンポーネント
 │   ├── platform/
-│   │   ├── ingress/                      # AWS LBC / GCP Ingress コントローラー
+│   │   ├── ingress/                      # GKE Ingress コントローラー設定
 │   │   └── observability/                # Prometheus & Alertmanager 設定
 │   ├── security/
 │   │   ├── calico/                       # Calico GlobalNetworkPolicy & 隔離ポリシー
@@ -140,10 +139,8 @@ cloud-workload-modernization-platform/
 │   └── verify-remediation.sh             # 脅威検知・自動修復検証スクリプト
 └── terraform/
     ├── environments/
-    │   ├── aws-dev/                      # AWS 向け環境エントリーポイント
     │   └── gcp-dev/                      # GCP 向け環境エントリーポイント
     └── modules/
-        ├── aws/                          # AWS VPC, EKS, Bottlerocket, IRSA, KMS CMK
         └── gcp/                          # GCP カスタムVPC, Private GKE, Workload Identity
 ```
 
@@ -160,33 +157,11 @@ cloud-workload-modernization-platform/
 
 ---
 
-## 7. クイックスタート & デプロイ手順
+## 7. クイックスタート & デプロイ手順 (GCP GKE)
 
-### オプション A: ローカル Ubuntu KVM クラスターでの検証（推奨）
-クラウドの利用コストをかけずに、ローカルの Ubuntu KVM またはベアメタル環境でセキュリティ基盤を検証するための専用ガイドを用意しています：
-👉 **[ローカルクラスター導入・検証ランブック (docs/local-install-runbook.md)](docs/local-install-runbook.md)**
+**前提条件:** 課金が有効で Kubernetes Engine / Compute Engine API を有効化した GCP プロジェクト、`gcloud`・`terraform` (>= 1.6)・`kubectl`・`helm` のインストール、および `gcloud auth application-default login` による認証。`terraform.tfvars.example` を `terraform.tfvars` にコピーし、`project_id` を設定してください。
 
-```bash
-# 1. ネームスペースとArgoCDの初期化
-./scripts/bootstrap-platform.sh local
-
-# 2. 1秒未満の自動修復テストを実行
-./scripts/verify-remediation.sh
-```
-
----
-
-### オプション B: マルチクラウド基盤へのデプロイ (AWS / GCP)
-
-#### AWS EKS へのデプロイ
-```bash
-cd terraform/environments/aws-dev
-terraform init
-terraform plan
-terraform apply
-```
-
-#### GCP GKE へのデプロイ
+### ステップ 1: Terraform による GKE 基盤のプロビジョニング
 ```bash
 cd terraform/environments/gcp-dev
 terraform init
@@ -194,11 +169,25 @@ terraform plan
 terraform apply
 ```
 
+### ステップ 2: kubectl の GKE クラスター接続設定
+```bash
+gcloud container clusters get-credentials modernization-gke-dev --region us-central1 --project <YOUR_GCP_PROJECT_ID>
+```
+
+### ステップ 3: プラットフォーム基盤および GitOps のブートストラップ
+```bash
+# リポジトリのルートディレクトリから実行
+./scripts/bootstrap-platform.sh gke
+```
+
+### ステップ 4: 1秒未満の自動修復・脅威封じ込めテストを実行
+GKE クラスターに対して `./scripts/verify-remediation.sh` を実行します（セクション 8 参照）。
+
 ---
 
 ## 8. 攻撃シミュレーションと検証
 
-1秒未満の脅威封じ込めエンジンを検証するには、自動テストスクリプトを実行します：
+1秒未満の脅威封じ込めエンジンを検証するには、GKE クラスターのコンテキストに対して自動テストスクリプトを実行します：
 
 ```bash
 ./scripts/verify-remediation.sh
