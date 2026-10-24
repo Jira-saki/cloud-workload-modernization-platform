@@ -33,42 +33,7 @@ To eliminate these risks at the root-cause level, this platform implements a mod
 ---
 
 ## 2. High-Level Architecture
-
-```text
-                           [ External Ingress Traffic ]
-                                        │
-                                        ▼
-                  [ Cloud Load Balancer / Cloud Armor WAF ]
-                                        │
-┌───────────────────────────────────────┼───────────────────────────────────────┐
-│ Kubernetes Platform (GCP GKE)         │                                       │
-│                                       ▼                                       │
-│                         [ Micro-Segmented Tenant Pod ]                        │
-│                                       │                                       │
-│   (Compromised Worker / Unauthorized  │ (Syscall: execve /bin/sh)             │
-│    Outbound C2 Attempt)               ▼                                       │
-│                         [ Linux Kernel (modern_ebpf) ]                        │
-│                                       │                                       │
-│                                       ▼                                       │
-│                        [ Falco Threat Detection Engine ]                      │
-│                                       │                                       │
-│                                       ▼ (gRPC / HTTPS Webhook)                │
-│                            [ Falcosidekick Router ]                           │
-│                                       │                                       │
-│                                       ▼                                       │
-│                        [ Falco Talon Automated Action ]                       │
-│                                 │          │                                  │
-│       ┌─────────────────────────┘          └─────────────────────────┐        │
-│       ▼ (Action 1: Immediate Isolation)                              ▼        │
-│  [ Action: kubernetes:labelize ]                       [ Action: kubernetes:terminate ]
-│  [ Patch Label: quarantine=true ]                      [ Pod Terminated (0s) ]│
-│       │                                                              │        │
-│       ▼                                                              ▼        │
-│  [ Calico Quarantine Policy ]                             [ ReplicaSet Healing]
-│  * Drops ALL Ingress & Egress                             * Spawns clean pod  │
-│  * Execution Isolated in < 1s                             * Zero downtime     │
-└───────────────────────────────────────────────────────────────────────────────┘
-```
+![High-Level Architecture](docs/assets/high-level-architecture.png)
 
 ---
 
