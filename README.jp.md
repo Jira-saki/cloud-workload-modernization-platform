@@ -193,6 +193,11 @@ GKE クラスターに対して `./scripts/verify-remediation.sh` を実行し�
 ./scripts/verify-remediation.sh
 ```
 
+![GKE Runtime Security Remediation SLA](docs/assets/gke-falco-subsecond-remediation.png)
+
+<details>
+<summary><b>🔍 View Raw Telemetry & Output Sequence (Logs)</b></summary>
+
 ### 実行結果とテレメトリ出力例
 ```text
 ============================================================

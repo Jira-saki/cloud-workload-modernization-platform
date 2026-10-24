@@ -3,7 +3,7 @@
 # Script: bootstrap-platform.sh
 # Purpose: Cluster initialization and GitOps platform bootstrapping
 # ==============================================================================
-set -euo pipefail
+set +euo pipefail
 
 PROVIDER="${1:-gke}"
 

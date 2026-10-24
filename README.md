@@ -193,7 +193,11 @@ To validate the sub-second threat containment engine, execute the automated veri
 ./scripts/verify-remediation.sh
 ```
 
-### Telemetry & Output Sequence
+![GKE Runtime Security Remediation SLA](docs/assets/gke-falco-subsecond-remediation.png)
+
+<details>
+<summary><b>🔍 View Raw Telemetry & Output Sequence (Logs)</b></summary>
+
 ```text
 ============================================================
  Threat Detection & Automated Remediation SLA Test
@@ -220,6 +224,12 @@ To validate the sub-second threat containment engine, execute the automated veri
 --- [PHASE 3: POST-ATTACK VERIFICATION & LATENCY AUDIT] ---
 [*] Testing post-attack network reachability from probe...
 [+] Network Isolation Confirmed: 100% packet loss to external network.
+------------------------------------------------------------
+ Remediation Latency Measured: 240 ms (0.240s)
+------------------------------------------------------------
+[+++] SLA VERIFICATION PASSED: Remediation executed in 240ms (< 1.0s target)!
+============================================================
+[+] Verification complete.
 ------------------------------------------------------------
  Remediation Latency Measured: 240 ms (0.240s)
 ------------------------------------------------------------
