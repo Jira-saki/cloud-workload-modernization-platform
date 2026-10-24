@@ -34,41 +34,7 @@
 
 ## 2. システムアーキテクチャ概要
 
-```text
-                           [ 外部からのIngressトラフィック ]
-                                        │
-                                        ▼
-                   [ クラウドLoad Balancer / Cloud Armor WAF ]
-                                        │
-┌───────────────────────────────────────┼───────────────────────────────────────┐
-│ Kubernetes Platform (GCP GKE)         │                                       │
-│                                       ▼                                       │
-│                         [ 分離されたテナントPod ]                             │
-│                                       │                                       │
-│   (侵害されたワーカー / 不正な        │ (システムコール: execve /bin/sh)      │
-│    アウトバウンドC2通信の試行)        ▼                                       │
-│                         [ Linux Kernel (modern_ebpf) ]                        │
-│                                       │                                       │
-│                                       ▼                                       │
-│                         [ Falco 脅威検知エンジン ]                            │
-│                                       │                                       │
-│                                       ▼ (gRPC / HTTPS Webhook)                │
-│                            [ Falcosidekick Router ]                           │
-│                                       │                                       │
-│                                       ▼                                       │
-│                        [ Falco Talon 自動修復アクション ]                     │
-│                                 │          │                                  │
-│       ┌─────────────────────────┘          └─────────────────────────┐        │
-│       ▼ (Action 1: 即時ネットワーク隔離)                              ▼        │
-│  [ Action: kubernetes:labelize ]                       [ Action: kubernetes:terminate ]
-│  [ ラベル付与: quarantine=true ]                       [ Pod強制終了 (0秒) ]  │
-│       │                                                              │        │
-│       ▼                                                              ▼        │
-│  [ Calico Quarantine Policy ]                             [ ReplicaSet自動修復]
-│  * すべてのIngress/Egressを破棄                           * 新しい正常Podを起動│
-│  * 1秒未満でネットワーク隔離完了                          * ダウンタイムゼロ  │
-└───────────────────────────────────────────────────────────────────────────────┘
-```
+![High-Level Architecture](docs/assets/high-level-architecture01.png)
 
 ---
 
