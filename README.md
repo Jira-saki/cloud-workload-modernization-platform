@@ -33,7 +33,7 @@ To eliminate these risks at the root-cause level, this platform implements a mod
 ---
 
 ## 2. High-Level Architecture
-![High-Level Architecture](docs/assets/high-level-architecture.png)
+![High-Level Architecture](docs/assets/high-level-architecture01.png)
 
 ---
 
